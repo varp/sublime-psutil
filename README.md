@@ -22,7 +22,7 @@ with the following contents:
 ```js
 {
    "*": {
-      ">3000": [
+      ">=3000": [
          "psutil"
       ]
    }
