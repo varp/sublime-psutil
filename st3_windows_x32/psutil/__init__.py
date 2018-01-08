@@ -11,11 +11,10 @@ sensors) in Python. Supported platforms:
  - Linux
  - Windows
  - OSX
+ - Sun Solaris
  - FreeBSD
  - OpenBSD
  - NetBSD
- - Sun Solaris
- - AIX
 
 Works with Python versions from 2.6 to 3.X.
 """
@@ -74,7 +73,6 @@ from ._common import NIC_DUPLEX_FULL
 from ._common import NIC_DUPLEX_HALF
 from ._common import NIC_DUPLEX_UNKNOWN
 
-from ._common import AIX
 from ._common import BSD
 from ._common import FREEBSD  # NOQA
 from ._common import LINUX
@@ -160,13 +158,6 @@ elif SUNOS:
     # _pssunos.py via sys.modules.
     PROCFS_PATH = "/proc"
 
-elif AIX:
-    from . import _psaix as _psplatform
-
-    # This is public API and it will be retrieved from _pslinux.py
-    # via sys.modules.
-    PROCFS_PATH = "/proc"
-
 else:  # pragma: no cover
     raise NotImplementedError('platform %s is not supported' % sys.platform)
 
@@ -194,7 +185,7 @@ __all__ = [
     "POWER_TIME_UNKNOWN", "POWER_TIME_UNLIMITED",
 
     "BSD", "FREEBSD", "LINUX", "NETBSD", "OPENBSD", "OSX", "POSIX", "SUNOS",
-    "WINDOWS", "AIX",
+    "WINDOWS",
 
     # classes
     "Process", "Popen",
@@ -212,7 +203,7 @@ __all__ = [
 ]
 __all__.extend(_psplatform.__extra__all__)
 __author__ = "Giampaolo Rodola'"
-__version__ = "5.4.1"
+__version__ = "5.3.1"
 version_info = tuple([int(num) for num in __version__.split('.')])
 AF_LINK = _psplatform.AF_LINK
 POWER_TIME_UNLIMITED = _common.POWER_TIME_UNLIMITED
@@ -794,7 +785,7 @@ class Process(object):
             """
             return self._proc.num_fds()
 
-    # Linux, BSD, AIX and Windows only
+    # Linux, BSD and Windows only
     if hasattr(_psplatform.Process, "io_counters"):
 
         def io_counters(self):
@@ -909,15 +900,13 @@ class Process(object):
         """Return the number of threads used by this process."""
         return self._proc.num_threads()
 
-    if hasattr(_psplatform.Process, "threads"):
-
-        def threads(self):
-            """Return threads opened by process as a list of
-            (id, user_time, system_time) namedtuples representing
-            thread id and thread CPU times (user/system).
-            On OpenBSD this method requires root access.
-            """
-            return self._proc.threads()
+    def threads(self):
+        """Return threads opened by process as a list of
+        (id, user_time, system_time) namedtuples representing
+        thread id and thread CPU times (user/system).
+        On OpenBSD this method requires root access.
+        """
+        return self._proc.threads()
 
     @_assert_pid_not_reused
     def children(self, recursive=False):
@@ -1160,11 +1149,13 @@ class Process(object):
         ('rss', 'vms', 'shared', 'text', 'lib', 'data', 'dirty', 'uss', 'pss')
         """
         valid_types = list(_psplatform.pfullmem._fields)
+        if hasattr(_psplatform, "pfullmem"):
+            valid_types.extend(list(_psplatform.pfullmem._fields))
         if memtype not in valid_types:
             raise ValueError("invalid memtype %r; valid types are %r" % (
                 memtype, tuple(valid_types)))
-        fun = self.memory_info if memtype in _psplatform.pmem._fields else \
-            self.memory_full_info
+        fun = self.memory_full_info if memtype in ('uss', 'pss', 'swap') else \
+            self.memory_info
         metrics = fun()
         value = getattr(metrics, memtype)
 
@@ -1180,6 +1171,7 @@ class Process(object):
 
     if hasattr(_psplatform.Process, "memory_maps"):
         # Available everywhere except OpenBSD and NetBSD.
+
         def memory_maps(self, grouped=True):
             """Return process' mapped memory regions as a list of namedtuples
             whose fields are variable depending on the platform.
