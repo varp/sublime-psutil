@@ -59,7 +59,7 @@ __all__ = [
     # named tuples
     'pconn', 'pcputimes', 'pctxsw', 'pgids', 'pio', 'pionice', 'popenfile',
     'pthread', 'puids', 'sconn', 'scpustats', 'sdiskio', 'sdiskpart',
-    'sdiskusage', 'snetio', 'snic', 'snicstats', 'sswap', 'suser',
+    'sdiskusage', 'snetio', 'snicaddr', 'snicstats', 'sswap', 'suser',
     # utility functions
     'conn_tmap', 'deprecated_method', 'isfile_strict', 'memoize',
     'parse_environ_block', 'path_exists_strict', 'usage_percent',
@@ -182,7 +182,8 @@ suser = namedtuple('suser', ['name', 'terminal', 'host', 'started', 'pid'])
 sconn = namedtuple('sconn', ['fd', 'family', 'type', 'laddr', 'raddr',
                              'status', 'pid'])
 # psutil.net_if_addrs()
-snic = namedtuple('snic', ['family', 'address', 'netmask', 'broadcast', 'ptp'])
+snicaddr = namedtuple('snicaddr',
+                      ['family', 'address', 'netmask', 'broadcast', 'ptp'])
 # psutil.net_if_stats()
 snicstats = namedtuple('snicstats', ['isup', 'duplex', 'speed', 'mtu'])
 # psutil.cpu_stats()
@@ -261,14 +262,14 @@ del AF_INET, AF_UNIX, SOCK_STREAM, SOCK_DGRAM
 # ===================================================================
 
 
-def usage_percent(used, total, _round=None):
+def usage_percent(used, total, round_=None):
     """Calculate percentage usage of 'used' against 'total'."""
     try:
         ret = (used / total) * 100
     except ZeroDivisionError:
         ret = 0.0 if isinstance(used, float) or isinstance(total, float) else 0
-    if _round is not None:
-        return round(ret, _round)
+    if round_ is not None:
+        return round(ret, round_)
     else:
         return ret
 
@@ -461,14 +462,14 @@ def deprecated_method(replacement):
     'replcement' is the method name which will be called instead.
     """
     def outer(fun):
-        msg = "%s() is deprecated; use %s() instead" % (
+        msg = "%s() is deprecated and will be removed; use %s() instead" % (
             fun.__name__, replacement)
         if fun.__doc__ is None:
             fun.__doc__ = msg
 
         @functools.wraps(fun)
         def inner(self, *args, **kwargs):
-            warnings.warn(msg, category=DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, category=FutureWarning, stacklevel=2)
             return getattr(self, replacement)(*args, **kwargs)
         return inner
     return outer

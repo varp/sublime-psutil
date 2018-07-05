@@ -23,6 +23,9 @@ from ._common import parse_environ_block
 from ._common import sockfam_to_enum
 from ._common import socktype_to_enum
 from ._common import usage_percent
+from ._exceptions import AccessDenied
+from ._exceptions import NoSuchProcess
+from ._exceptions import ZombieProcess
 
 
 __extra__all__ = []
@@ -84,12 +87,6 @@ pidtaskinfo_map = dict(
     volctxsw=7,
 )
 
-# these get overwritten on "import psutil" from the __init__.py file
-NoSuchProcess = None
-ZombieProcess = None
-AccessDenied = None
-TimeoutExpired = None
-
 
 # =====================================================================
 # --- named tuples
@@ -125,7 +122,7 @@ def virtual_memory():
     total, active, inactive, wired, free = cext.virtual_mem()
     avail = inactive + free
     used = active + inactive + wired
-    percent = usage_percent((total - avail), total, _round=1)
+    percent = usage_percent((total - avail), total, round_=1)
     return svmem(total, avail, percent, used, free,
                  active, inactive, wired)
 
@@ -133,7 +130,7 @@ def virtual_memory():
 def swap_memory():
     """Swap system memory as a (total, used, free, sin, sout) tuple."""
     total, used, free, sin, sout = cext.swap_mem()
-    percent = usage_percent(used, total, _round=1)
+    percent = usage_percent(used, total, round_=1)
     return _common.sswap(total, used, free, percent, sin, sout)
 
 
@@ -211,6 +208,29 @@ def disk_partitions(all=False):
 
 
 # =====================================================================
+# --- sensors
+# =====================================================================
+
+
+def sensors_battery():
+    """Return battery information.
+    """
+    try:
+        percent, minsleft, power_plugged = cext.sensors_battery()
+    except NotImplementedError:
+        # no power source - return None according to interface
+        return None
+    power_plugged = power_plugged == 1
+    if power_plugged:
+        secsleft = _common.POWER_TIME_UNLIMITED
+    elif minsleft == -1:
+        secsleft = _common.POWER_TIME_UNKNOWN
+    else:
+        secsleft = minsleft * 60
+    return _common.sbattery(percent, secsleft, power_plugged)
+
+
+# =====================================================================
 # --- network
 # =====================================================================
 
@@ -281,7 +301,22 @@ def users():
 # =====================================================================
 
 
-pids = cext.pids
+def pids():
+    ls = cext.pids()
+    if 0 not in ls:
+        # On certain OSX versions pids() C doesn't return PID 0 but
+        # "ps" does and the process is querable via sysctl():
+        # https://travis-ci.org/giampaolo/psutil/jobs/309619941
+        try:
+            Process(0).create_time()
+            ls.insert(0, 0)
+        except NoSuchProcess:
+            pass
+        except AccessDenied:
+            ls.insert(0, 0)
+    return ls
+
+
 pid_exists = _psposix.pid_exists
 
 
@@ -299,6 +334,8 @@ def wrap_exceptions(fun):
             if err.errno in (errno.EPERM, errno.EACCES):
                 raise AccessDenied(self.pid, self._name)
             raise
+        except cext.ZombieProcessError:
+            raise ZombieProcess(self.pid, self._name, self._ppid)
     return wrapper
 
 
@@ -502,10 +539,7 @@ class Process(object):
 
     @wrap_exceptions
     def wait(self, timeout=None):
-        try:
-            return _psposix.wait_pid(self.pid, timeout)
-        except _psposix.TimeoutExpired:
-            raise TimeoutExpired(timeout, self.pid, self._name)
+        return _psposix.wait_pid(self.pid, timeout, self._name)
 
     @wrap_exceptions
     def nice_get(self):
@@ -525,8 +559,7 @@ class Process(object):
 
     @wrap_exceptions
     def threads(self):
-        with catch_zombie(self):
-            rawlist = cext.proc_threads(self.pid)
+        rawlist = cext.proc_threads(self.pid)
         retlist = []
         for thread_id, utime, stime in rawlist:
             ntuple = _common.pthread(thread_id, utime, stime)
@@ -535,5 +568,4 @@ class Process(object):
 
     @wrap_exceptions
     def memory_maps(self):
-        with catch_zombie(self):
-            return cext.proc_memory_maps(self.pid)
+        return cext.proc_memory_maps(self.pid)
