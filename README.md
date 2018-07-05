@@ -9,7 +9,7 @@ for the [Sublime Text](http://sublimetext.com/) text editor.
 On all platforms except Linux x86 psutil version is 5.4.6 (for now). 
 
 # TODO 
-~~- Compile psutil 5.4.1 with Python 3.3 for Window platform~~
+- ~~Compile psutil 5.4.1 with Python 3.3 for Window platform~~
 - Compile psutil 5.4.6 libs for Linux x86 platform
 
 
