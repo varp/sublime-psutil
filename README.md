@@ -5,9 +5,12 @@ bundled for usage with [Package Control](http://packagecontrol.io/),
 a package manager
 for the [Sublime Text](http://sublimetext.com/) text editor.
 
-# NOTE: On all platforms except Windows psutil version is 5.4.1, on Windows using 5.3.1 as latest precompiled version from PyPI supporting ST3 embedded Python 3.3 version.
+# NOTE
+On all platforms except Linux x86 psutil version is 5.4.6 (for now). 
 
-# TODO: Compile psutil 5.4.1 with Python 3.3 for Window platform
+# TODO 
+~~- Compile psutil 5.4.1 with Python 3.3 for Window platform~~
+- Compile psutil 5.4.6 libs for Linux x86 platform
 
 
 ## How to use *psutil* as a dependency
