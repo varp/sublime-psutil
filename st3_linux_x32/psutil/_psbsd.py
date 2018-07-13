@@ -27,6 +27,9 @@ from ._common import sockfam_to_enum
 from ._common import socktype_to_enum
 from ._common import usage_percent
 from ._compat import which
+from ._exceptions import AccessDenied
+from ._exceptions import NoSuchProcess
+from ._exceptions import ZombieProcess
 
 __extra__all__ = []
 
@@ -128,12 +131,6 @@ kinfo_proc_map = dict(
     name=24,
 )
 
-# these get overwritten on "import psutil" from the __init__.py file
-NoSuchProcess = None
-ZombieProcess = None
-AccessDenied = None
-TimeoutExpired = None
-
 
 # =====================================================================
 # --- named tuples
@@ -191,7 +188,7 @@ def virtual_memory():
                     shared = int(line.split()[1]) * 1024
     avail = inactive + cached + free
     used = active + wired + cached
-    percent = usage_percent((total - avail), total, _round=1)
+    percent = usage_percent((total - avail), total, round_=1)
     return svmem(total, avail, percent, used, free,
                  active, inactive, buffers, cached, shared, wired)
 
@@ -199,7 +196,7 @@ def virtual_memory():
 def swap_memory():
     """System swap memory as (total, used, free, sin, sout) namedtuple."""
     total, used, free, sin, sout = cext.swap_mem()
-    percent = usage_percent(used, total, _round=1)
+    percent = usage_percent(used, total, round_=1)
     return _common.sswap(total, used, free, percent, sin, sout)
 
 
@@ -760,10 +757,7 @@ class Process(object):
 
     @wrap_exceptions
     def wait(self, timeout=None):
-        try:
-            return _psposix.wait_pid(self.pid, timeout)
-        except _psposix.TimeoutExpired:
-            raise TimeoutExpired(timeout, self.pid, self._name)
+        return _psposix.wait_pid(self.pid, timeout, self._name)
 
     @wrap_exceptions
     def nice_get(self):
