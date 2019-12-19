@@ -1,3 +1,7 @@
+# Deprecation notice
+Please use https://github.com/packagecontrol/psutil
+
+
 # *psutil* module for Package Control
 
 This is the *[psutil](https://github.com/giampaolo/psutil)* module
