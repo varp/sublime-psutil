@@ -1,5 +1,5 @@
 # Deprecation notice
-Please use https://github.com/packagecontrol/psutil
+Please use https://github.com/packagecontrol/psutil instead.
 
 
 # *psutil* module for Package Control
